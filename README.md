@@ -6,6 +6,7 @@
 
 **The iOS Simulator controls Xcode no longer shows, one click away in your menu bar.**
 
+[![Release](https://img.shields.io/github/v/release/ewjinx/SimTools?style=flat-square&color=5E5CE6)](https://github.com/ewjinx/SimTools/releases/latest)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-111111?style=flat-square&logo=apple&logoColor=white)](#install)
 [![Swift](https://img.shields.io/badge/Swift-native-F05138?style=flat-square&logo=swift&logoColor=white)](main.swift)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-34C759?style=flat-square)](#install)
@@ -50,13 +51,25 @@ Newer Xcode versions dropped **Shake** and **Slow Animations** from the Simulato
 
 ## Install
 
+### Download
+
+Grab the **.dmg** from the [latest release](https://github.com/ewjinx/SimTools/releases/latest), open it and drag SimTools into Applications.
+
+> [!IMPORTANT]
+> SimTools isn't notarized, so macOS blocks the first launch. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. Or run:
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/SimTools.app
+> ```
+
+### Build from source
+
 ```bash
 git clone https://github.com/ewjinx/SimTools.git
 cd SimTools
 ./build.sh
 ```
 
-That's it. `build.sh` compiles SimTools, installs it to `~/Applications/SimTools.app` and launches it. It needs no Xcode project, no packages and no signing account.
+`build.sh` compiles a universal (Apple silicon + Intel) app, installs it to `~/Applications` and launches it. It needs no Xcode project, no packages and no signing account. Run `./build.sh dmg` to package a release DMG instead.
 
 > [!NOTE]
 > Requires **macOS 13+** and **Xcode** (for `swiftc` and `simctl`). Boot a simulator, then click the wrench and screwdriver icon in the menu bar.
