@@ -1,7 +1,7 @@
 import AppKit
 import ServiceManagement
 
-struct Device: Decodable {
+struct Device: Decodable, Equatable {
     let udid: String
     let name: String
     let deviceTypeIdentifier: String?
@@ -28,7 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let menu = NSMenu()
     private let defaults = UserDefaults.standard
+    private var devices: [Device] = []
     private var device: Device?
+    private var slowMotion: Bool?
+    private var isRefreshing = false
     private var locationByDevice: [String: String] = [:]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -37,19 +40,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.button?.toolTip = "SimTools"
         menu.delegate = self
         statusItem.menu = menu
+        refresh()
     }
 
     // MARK: - Menu
 
+    // simctl takes ~500 ms, so the menu opens from cached state and updates in place once fresh state arrives.
     func menuNeedsUpdate(_ menu: NSMenu) {
+        rebuildMenu()
+        refresh()
+    }
+
+    private func refresh() {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        let selected = defaults.string(forKey: "selectedDevice")
+        DispatchQueue.global().async {
+            let devices = self.bootedDevices()
+            let slowMotion = (devices.first { $0.udid == selected } ?? devices.first).flatMap(self.isSlowMotionOn)
+            DispatchQueue.main.async {
+                self.isRefreshing = false
+                guard devices != self.devices || slowMotion != self.slowMotion else { return }
+                self.devices = devices
+                self.slowMotion = slowMotion
+                self.rebuildMenu()
+            }
+        }
+    }
+
+    private func rebuildMenu() {
         menu.removeAllItems()
-        let devices = bootedDevices()
         device = devices.first { $0.udid == defaults.string(forKey: "selectedDevice") } ?? devices.first
 
         menu.addItem(deviceItem(devices))
         menu.addItem(.separator())
 
-        let slowMotion = device.flatMap(isSlowMotionOn)
         addItem("Shake", symbol: "iphone.gen3.radiowaves.left.and.right", action: #selector(shake))
         addItem("Slow Animations", symbol: "tortoise", action: #selector(toggleSlowMotion)).state = slowMotion == true ? .on : .off
         addItem("Open URL…", symbol: "link", action: #selector(openURL))
@@ -111,6 +136,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func selectDevice(_ sender: NSMenuItem) {
         defaults.set(sender.representedObject as? String, forKey: "selectedDevice")
+        slowMotion = nil
+        refresh()
     }
 
     @objc private func shake() {
@@ -118,9 +145,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func toggleSlowMotion() {
-        guard let device else { return }
-        let value = isSlowMotionOn(device) == true ? "0" : "1"
-        notifyutil(["-s", Self.slowMotionKey, value, "-p", Self.slowMotionKey])
+        let enable = slowMotion != true
+        slowMotion = enable
+        notifyutil(["-s", Self.slowMotionKey, enable ? "1" : "0", "-p", Self.slowMotionKey])
     }
 
     @objc private func openURL() {
